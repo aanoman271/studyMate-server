@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const express = require("express");
 const cors = require("cors");
@@ -60,15 +60,33 @@ async function run() {
     const partnerCollection = db.collection("partners");
     // apis partner
     app.get("/partners", async (req, res) => {
-      // const users = req.body;
-      // const cursor = users.find();
-      // const result = await cursor.toArray();
-      res.send("geted");
+      try {
+        const query = req.query;
+        const cursor = partnerCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch {
+        res.status(500).send({ message: "something went wrong" });
+      }
+    });
+    app.get("/partners/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await partnerCollection.findOne(query);
+        if (!result) {
+          return res.status(404).send({ message: "Partner not found" });
+        } else {
+          res.send(result);
+        }
+      } catch (err) {
+        res.status(500).send({ message: "Invalid ID" });
+      }
     });
     app.post("/partners", verificationToken, async (req, res) => {
       const query = req.body;
       const result = await partnerCollection.insertOne(query);
-      res.send("partner post created", result);
+      res.send(result);
     });
     app.patch("/partners", async (req, res) => {
       res.send("pastch");
