@@ -58,6 +58,7 @@ async function run() {
     console.log("mongoDB connected");
     const db = client.db("studuMateDB");
     const partnerCollection = db.collection("partners");
+    const RequestPartnerCollection = db.collection("partnerRequest");
     // apis partner
     app.get("/partners", async (req, res) => {
       try {
@@ -88,11 +89,14 @@ async function run() {
       const result = await partnerCollection.insertOne(query);
       res.send(result);
     });
-    app.patch("/partners", async (req, res) => {
-      res.send("pastch");
-    });
-    app.delete("/partners", async (req, res) => {
-      res.send("pastch");
+    // partner count
+    app.patch("/partners/:id/incriment", async (req, res) => {
+      const id = req.params.id;
+      const incriment = req.params.incriment;
+      const cursor = partnerCollection.findOne({ _id: new ObjectId(id) });
+      const result = await cursor.insertOne({ count: incriment });
+
+      res.send(result);
     });
 
     app.post("users", async (res, req) => {});
