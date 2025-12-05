@@ -59,6 +59,7 @@ async function run() {
     const db = client.db("studuMateDB");
     const partnerCollection = db.collection("partners");
     const RequestPartnerCollection = db.collection("partnerRequest");
+    const rattingCollection = db.collection("Rattings");
     // apis partner
     app.get("/partners", async (req, res) => {
       try {
@@ -89,31 +90,55 @@ async function run() {
       const result = await partnerCollection.insertOne(query);
       res.send(result);
     });
-    // partner count
-    app.patch(
-      "/partners/:id/incriment",
-      verificationToken,
-      async (req, res) => {
-        try {
-          const id = req.params.id;
-          const query = { _id: new ObjectId(id) };
-          const count = { $inc: { count: 1 } };
-          const result = await partnerCollection.findOneAndUpdate(query, count);
-          res.send(result);
-        } catch {
-          res.status(500).send({ message: "server problem" });
-        }
+    // ratting
+    app.post("/rattings", verificationToken, async (req, res) => {
+      const { partnerId, ratting } = req.body;
+      const userId = token_email;
+      const check = await rattingCollection.findOne({
+        partnerId: new ObjectId(partnerId),
+        userEmail: userId,
+      });
+      if (check) {
+        return res
+          .status(409)
+          .send({ message: "You have already rated this partner." });
       }
-    );
+      const ratingDta = {
+        partnerId: new ObjectId(partnerId),
+        userEmail: userId,
+        rating: parseFloat(rating),
+      };
+      const result = await rattingCollection.insertOne(ratingDta);
+      res.send(result);
+    });
     // post request
-    app.post("/Request", verificationToken, async (req, res) => {
+    app.post("/RequestPartner", verificationToken, async (req, res) => {
       try {
         const NewRequest = req.body;
+        const partnerId = NewRequest.PartnerId;
+        const userEmail = NewRequest.userEmail;
+
+        const existingRequest = await RequestPartnerCollection.findOne({
+          PartnerId: partnerId,
+          userEmail: userEmail,
+        });
+
+        if (existingRequest) {
+          return res
+            .status(409)
+            .send({ message: "Request already sent by this user." });
+        }
+
         const result = await RequestPartnerCollection.insertOne(NewRequest);
+
+        const updateQuery = { _id: new ObjectId(partnerId) };
+        const countUpdate = { $inc: { partnerCount: 1 } };
+        await partnerCollection.updateOne(updateQuery, countUpdate);
+
         res.send(result);
       } catch (error) {
-        console.log(error);
-        req.status(500).send({ message: "failed Insert Request" });
+        console.error("Error in /RequestPartner:", error);
+        res.status(500).send({ message: "Failed to process Request" });
       }
     });
     app.post("users", async (res, req) => {});
