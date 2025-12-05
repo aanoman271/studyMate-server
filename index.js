@@ -90,15 +90,32 @@ async function run() {
       res.send(result);
     });
     // partner count
-    app.patch("/partners/:id/incriment", async (req, res) => {
-      const id = req.params.id;
-      const incriment = req.params.incriment;
-      const cursor = partnerCollection.findOne({ _id: new ObjectId(id) });
-      const result = await cursor.insertOne({ count: incriment });
-
-      res.send(result);
+    app.patch(
+      "/partners/:id/incriment",
+      verificationToken,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+          const query = { _id: new ObjectId(id) };
+          const count = { $inc: { count: 1 } };
+          const result = await partnerCollection.findOneAndUpdate(query, count);
+          res.send(result);
+        } catch {
+          res.status(500).send({ message: "server problem" });
+        }
+      }
+    );
+    // post request
+    app.post("/Request", verificationToken, async (req, res) => {
+      try {
+        const NewRequest = req.body;
+        const result = await RequestPartnerCollection.insertOne(NewRequest);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+        req.status(500).send({ message: "failed Insert Request" });
+      }
     });
-
     app.post("users", async (res, req) => {});
 
     await client.db("admin").command({ ping: 1 });
