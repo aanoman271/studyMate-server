@@ -36,7 +36,9 @@ app.use(express.json());
 const verificationToken = async (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
-    return res.status(401).send({ message: "unauthorise user" });
+    return res
+      .status(401)
+      .send({ message: "unauthorise user ,token not found" });
   }
   const token = authorization.split(" ")[1];
   if (!token) {
@@ -59,7 +61,6 @@ async function run() {
     const db = client.db("studuMateDB");
     const partnerCollection = db.collection("partners");
     const RequestPartnerCollection = db.collection("partnerRequest");
-    const rattingCollection = db.collection("Rattings");
     // apis partner
     app.get("/partners", async (req, res) => {
       try {
@@ -91,24 +92,23 @@ async function run() {
       res.send(result);
     });
     // ratting
-    app.post("/rattings", verificationToken, async (req, res) => {
-      const { partnerId, ratting } = req.body;
-      const userId = token_email;
-      const check = await rattingCollection.findOne({
-        partnerId: new ObjectId(partnerId),
-        userEmail: userId,
-      });
-      if (check) {
-        return res
-          .status(409)
-          .send({ message: "You have already rated this partner." });
+    app.patch("/partners/:id", verificationToken, async (req, res) => {
+      const { rating } = req.body;
+      const id = req.params.id;
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: "Invalid Partner ID format." });
       }
-      const ratingDta = {
-        partnerId: new ObjectId(partnerId),
-        userEmail: userId,
-        rating: parseFloat(rating),
+
+      const numberRatting = parseInt(rating);
+      if (isNaN(numberRatting) || numberRatting < 1 || numberRatting > 5) {
+        res.status(400).send({ message: "invaild ratting" });
+      }
+
+      const query = { _id: new ObjectId(id) };
+      const rattingObject = {
+        $inc: { totalRatting: numberRatting, rattingCount: 1 },
       };
-      const result = await rattingCollection.insertOne(ratingDta);
+      const result = await partnerCollection.updateOne(query, rattingObject);
       res.send(result);
     });
     // post request
@@ -139,6 +139,19 @@ async function run() {
       } catch (error) {
         console.error("Error in /RequestPartner:", error);
         res.status(500).send({ message: "Failed to process Request" });
+      }
+    });
+
+    // Partner Request get
+    app.get("/RequestPartner", async (req, res) => {
+      try {
+        const email = req.query.email;
+        const query = { email: email };
+        const cursor = RequestPartnerCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch {
+        res.status(500).send({ message: "Invalid User" });
       }
     });
     app.post("users", async (res, req) => {});
