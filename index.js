@@ -41,12 +41,15 @@ const verificationToken = async (req, res, next) => {
       .send({ message: "unauthorise user ,token not found" });
   }
   const token = authorization.split(" ")[1];
+  console.log(token);
   if (!token) {
     return res.status(401).send({ message: "unauthorised user" });
   }
   try {
     const decoded = await admin.auth().verifyIdToken(token);
+
     req.token_email = decoded.email;
+
     next();
   } catch (error) {
     return res.status(401).send({ message: "unauthorised user" });
@@ -115,12 +118,13 @@ async function run() {
     app.post("/RequestPartner", verificationToken, async (req, res) => {
       try {
         const NewRequest = req.body;
-        const partnerId = NewRequest.PartnerId;
+        console.log(NewRequest);
+        const partnerId = NewRequest.pId;
         const userEmail = NewRequest.userEmail;
 
         const existingRequest = await RequestPartnerCollection.findOne({
-          PartnerId: partnerId,
-          userEmail: userEmail,
+          userEmail,
+          partnerId,
         });
 
         if (existingRequest) {
@@ -128,7 +132,6 @@ async function run() {
             .status(409)
             .send({ message: "Request already sent by this user." });
         }
-
         const result = await RequestPartnerCollection.insertOne(NewRequest);
 
         const updateQuery = { _id: new ObjectId(partnerId) };
@@ -143,10 +146,11 @@ async function run() {
     });
 
     // Partner Request get
-    app.get("/RequestPartner", async (req, res) => {
+    app.get("/RequestPartner", verificationToken, async (req, res) => {
       try {
         const email = req.query.email;
-        const query = { email: email };
+        const query = { userEmail: email };
+
         const cursor = RequestPartnerCollection.find(query);
         const result = await cursor.toArray();
         res.send(result);
@@ -154,8 +158,31 @@ async function run() {
         res.status(500).send({ message: "Invalid User" });
       }
     });
-    app.post("users", async (res, req) => {});
+    // delete request
+    app.delete("/RequestPartner/:id", verificationToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await RequestPartnerCollection.deleteOne(query);
+      res.send(result);
+    });
+    app.patch("/RequestPartner/:id", verificationToken, async (req, res) => {
+      const id = req.params.id;
+      const info = req.body;
+      console.log("reqid", id);
+      console.log("body", req.body);
+      try {
+        const query = { _id: new ObjectId(id) };
 
+        const result = await RequestPartnerCollection.updateOne(query, {
+          $set: info,
+        });
+
+        res.send(result);
+      } catch (err) {
+        console.log(err.message);
+        res.status(500).send({ error: "Update failed", details: err.message });
+      }
+    });
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
