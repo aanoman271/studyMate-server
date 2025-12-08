@@ -41,10 +41,10 @@ const verificationToken = async (req, res, next) => {
       .send({ message: "unauthorise user ,token not found" });
   }
   const token = authorization.split(" ")[1];
-  console.log(token);
   if (!token) {
     return res.status(401).send({ message: "unauthorised user" });
   }
+  console.log(token);
   try {
     const decoded = await admin.auth().verifyIdToken(token);
 
@@ -75,6 +75,17 @@ async function run() {
         res.status(500).send({ message: "something went wrong" });
       }
     });
+    // top partner
+    app.get("/partners/top", async (req, res) => {
+      const query = req.body;
+      const cursor = partnerCollection
+        .find()
+        .sort({ totalRatting: -1 })
+        .limit(3);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     app.get("/partners/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -89,6 +100,7 @@ async function run() {
         res.status(500).send({ message: "Invalid ID" });
       }
     });
+
     app.post("/partners", verificationToken, async (req, res) => {
       const query = req.body;
       const result = await partnerCollection.insertOne(query);
@@ -96,15 +108,16 @@ async function run() {
     });
     // ratting
     app.patch("/partners/:id", verificationToken, async (req, res) => {
-      const { rating } = req.body;
+      const ratting = req.body.ratting;
+      console.log(req.body);
       const id = req.params.id;
       if (!ObjectId.isValid(id)) {
         return res.status(400).send({ message: "Invalid Partner ID format." });
       }
 
-      const numberRatting = parseInt(rating);
+      const numberRatting = parseInt(ratting);
       if (isNaN(numberRatting) || numberRatting < 1 || numberRatting > 5) {
-        res.status(400).send({ message: "invaild ratting" });
+        return res.status(400).send({ message: "invaild ratting" });
       }
 
       const query = { _id: new ObjectId(id) };
@@ -123,8 +136,8 @@ async function run() {
         const userEmail = NewRequest.userEmail;
 
         const existingRequest = await RequestPartnerCollection.findOne({
-          userEmail,
-          partnerId,
+          userEmail: userEmail,
+          pId: partnerId,
         });
 
         if (existingRequest) {
@@ -158,6 +171,7 @@ async function run() {
         res.status(500).send({ message: "Invalid User" });
       }
     });
+
     // delete request
     app.delete("/RequestPartner/:id", verificationToken, async (req, res) => {
       const id = req.params.id;
@@ -168,8 +182,7 @@ async function run() {
     app.patch("/RequestPartner/:id", verificationToken, async (req, res) => {
       const id = req.params.id;
       const info = req.body;
-      console.log("reqid", id);
-      console.log("body", req.body);
+
       try {
         const query = { _id: new ObjectId(id) };
 
@@ -183,6 +196,7 @@ async function run() {
         res.status(500).send({ error: "Update failed", details: err.message });
       }
     });
+    // top partners
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -195,8 +209,7 @@ run().catch(console.dir);
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
-// studyMate
-// WY4TfIBX8gN5Ef68
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
